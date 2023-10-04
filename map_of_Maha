@@ -1,0 +1,70 @@
+//This file contains code where boundary and elevation is blended together in a single file
+// Below is the Import Codes
+var elevation = ee.Image("CGIAR/SRTM90_V4"),
+    district = ee.FeatureCollection("projects/ee-leelakrishnannielitcalicut/assets/District"),
+    stateBoundary = ee.FeatureCollection("users/leelakrishnannielitcalicut/MAHARASHTRA_STATE_BDY"),
+    Box = 
+    /* color: #d63000 */
+    /* shown: false */
+    /* locked: true */
+    /* displayProperties: [
+      {
+        "type": "rectangle"
+      }
+    ] */
+    ee.Geometry.Polygon(
+        [[[71.77556648390924, 22.50954480886848],
+          [71.77556648390924, 15.323427157598422],
+          [81.44353523390924, 15.323427157598422],
+          [81.44353523390924, 22.50954480886848]]], null, false);
+
+//Paste the above code seperatly in the import window
+
+//Working with Elevation Data in the Polygon
+
+var clippedElevation = elevation.clip(Box);
+var downsampledElevation = clippedElevation.resample('bicubic').reproject('EPSG:4326', null, 90);
+var normalizedElevation = downsampledElevation.unitScale(0, 5000);
+var greyscaleElevation = normalizedElevation.visualize({min: 0, max: 1, palette: ['000000', 'FFFFFF']});
+//Map.addLayer(greyscaleElevation);
+
+
+// Working with State Boundary to be represented in white colour 
+
+var boundary = stateBoundary.geometry();
+var stateimage = ee.Image().paint({
+  featureCollection: ee.FeatureCollection([ee.Feature(boundary)]),
+  color: 'red',  // Color for the boundary outline
+  width: 1    // Line width for the boundary outline
+});
+var colorstateImg = stateimage.visualize({palette: 'red'});
+
+//Map.addLayer(colorstateImg);
+
+// Working with District Boundary to be represented in white colour 
+var disimage = district.style({
+  color: 'white',
+  width: 1,                   // Border width
+  fillColor: '#FFFFFF00'  // Transparent fill color
+});
+
+//Map.addLayer(disimage);
+
+
+var blendImage = greyscaleElevation.blend(colorstateImg);
+var CompleteBlendImage = blendImage.blend(disimage);
+
+
+Map.addLayer(CompleteBlendImage);
+
+
+// Export the image as a GeoTIFF
+Export.image.toDrive({
+  image: CompleteBlendImage,
+  description: 'state_boundary',
+  folder: 'yourExportFolder',
+  scale: 625,  // Adjust the scale as needed
+  crs: 'EPSG:4326',  // Adjust the CRS as needed
+  fileFormat: 'GeoTIFF'
+});
+
